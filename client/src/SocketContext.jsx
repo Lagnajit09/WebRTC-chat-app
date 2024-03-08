@@ -9,7 +9,12 @@ const socket = io("http://localhost:5000");
 const ContextProvider = ({ children }) => {
   const [stream, setStream] = useState();
   const [me, setMe] = useState("");
-  const [call, setCall] = useState({});
+  const [call, setCall] = useState({
+    isReceivingCall: false,
+    from: null,
+    name: null,
+    signal: null,
+  });
   const [callAccepted, setCallAccepted] = useState(false);
   const [callEnded, setCallEnded] = useState(false);
   const [name, setName] = useState("");
@@ -52,25 +57,26 @@ const ContextProvider = ({ children }) => {
   }, []);
 
   const answerCall = () => {
-    setCallAccepted(true);
-
-    const peer = new Peer({ initiator: false, trickle: false, stream });
-
-    peer.on("signal", (data) => {
-      socket.emit("answercall", { signal: data, to: call.from });
-    });
-
-    peer.on("stream", (currentStream) => {
-      userVideo.current.srcObject = currentStream;
-    });
-
-    peer.signal(call.signal);
-
-    connectionRef.current = peer;
+    //   if (!call.isReceivingCall || !call.from || !call.signal) {
+    //     // Handle the case where there is no incoming call
+    //     console.error("No incoming call to answer");
+    //     return;
+    //   }
+    //   setCallAccepted(true);
+    //   const peer = new Peer({ initiator: false, trickle: false, stream });
+    //   peer.on("signal", (data) => {
+    //     socket.emit("answercall", { signal: data, to: call.from });
+    //   });
+    //   peer.on("stream", (currentStream) => {
+    //     userVideo.current.srcObject = currentStream;
+    //   });
+    //   peer.signal(call.signal);
+    //   connectionRef.current = peer;
   };
 
   const callUser = (id) => {
     const peer = new Peer({ initiator: true, trickle: false, stream });
+
     peer.on("signal", (data) => {
       socket.emit("calluser", {
         userToCall: id,
@@ -84,10 +90,17 @@ const ContextProvider = ({ children }) => {
       userVideo.current.srcObject = currentStream;
     });
 
-    socket.on("callaccepted", (signal) => {
-      setCallAccepted(true);
-      peer.signal(signal);
+    peer.on("error", (err) => {
+      console.error("Peer connection error:", err);
     });
+
+    socket.on("callaccepted", (acceptSignal) => {
+      console.log("Call accepted signal received:", acceptSignal);
+      setCallAccepted(true);
+      peer.signal(acceptSignal);
+    });
+
+    console.log("Initialized peer:", peer);
 
     connectionRef.current = peer;
   };
